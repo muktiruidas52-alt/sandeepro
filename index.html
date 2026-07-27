@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Madhyamik Marksheet & Performance Dashboard</title>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (XLSX) CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --primary-light: #3b82f6;
+            --secondary: #0f766e;
+            --bg-body: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --border-color: #e2e8f0;
+            --success: #16a34a;
+            --warning: #d97706;
+            --danger: #dc2626;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            padding: 16px;
+            line-height: 1.5;
+        }
+
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Top Header */
+        header {
+            background: linear-gradient(135deg, var(--primary) 0%, #1e40af 100%);
+            color: white;
+            padding: 24px;
+            border-radius: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        header .title-area h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+        }
+
+        header .title-area p {
+            font-size: 0.95rem;
+            opacity: 0.85;
+            margin-top: 4px;
+        }
+
+        .file-upload-btn {
+            background-color: #ffffff;
+            color: var(--primary);
+            font-weight: 600;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .file-upload-btn:hover {
+            background-color: #f1f5f9;
+            transform: translateY(-1px);
+        }
+
+        #excelFile {
+            display: none;
+        }
+
+        /* Slicers / Filters Bar */
+        .slicer-card {
+            background: var(--card-bg);
+            padding: 16px 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .slicer-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 180px;
+        }
+
+        .slicer-group label {
+            font-size: 0.825rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .slicer-group select, .slicer-group input {
+            padding: 9px 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            outline: none;
+            font-size: 0.95rem;
+            background-color: #fff;
+            color: var(--text-main);
+        }
+
+        .slicer-group select:focus, .slicer-group input:focus {
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+
+        /* KPI Cards Grid */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .kpi-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: transform 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .kpi-info h3 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .kpi-info .kpi-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-top: 6px;
+            color: var(--text-main);
+        }
+
+        .kpi-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+        }
+
+        .kpi-blue { background-color: #eff6ff; color: #2563eb; }
+        .kpi-green { background-color: #f0fdf4; color: #16a34a; }
+        .kpi-purple { background-color: #faf5ff; color: #9333ea; }
+        .kpi-amber { background-color: #fffbeb; color: #d97706; }
+
+        /* Charts Grid */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-card h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .chart-container {
+            position: relative;
+            flex: 1;
+            min-height: 280px;
+        }
+
+        /* Data Table */
+        .table-card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.03);
+            overflow: hidden;
+        }
+
+        .table-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .table-header h2 {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .export-btn {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .export-btn:hover {
+            opacity: 0.9;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 0.9rem;
+        }
+
+        th {
+            background-color: #f1f5f9;
+            color: var(--text-muted);
+            font-weight: 600;
+            padding: 12px;
+            border-bottom: 2px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        .badge-star { background-color: #fef3c7; color: #92400e; }
+        .badge-1st { background-color: #dbeafe; color: #1e40af; }
+        .badge-2nd { background-color: #e0e7ff; color: #3730a3; }
+        .badge-3rd { background-color: #f3e8ff; color: #6b21a8; }
+        .badge-fail { background-color: #fee2e2; color: #991b1b; }
+
+        /* Responsive Mobile Layout */
+        @media (max-width: 600px) {
+            body { padding: 8px; }
+            header { padding: 16px; }
+            header .title-area h1 { font-size: 1.3rem; }
+            .kpi-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+
+    <!-- Header Section -->
+    <header>
+        <div class="title-area">
+            <h1><i class="fa-solid fa-graduation-cap"></i> Madhyamik Marksheet Performance Dashboard</h1>
+            <p>School Examination Analysis & Student Academic Progress Report</p>
+        </div>
+        <div>
+            <label for="excelFile" class="file-upload-btn">
+                <i class="fa-solid fa-file-excel"></i> Upload asneha21.xlsx
+            </label>
+            <input type="file" id="excelFile" accept=".xlsx, .xls, .csv">
+        </div>
+    </header>
+
+    <!-- Slicers / Dynamic Filters -->
+    <div class="slicer-card">
+        <div class="slicer-group">
+            <label><i class="fa-solid fa-filter"></i> Division Slicer</label>
+            <select id="divisionFilter" onchange="applyFilters()">
+                <option value="ALL">All Divisions</option>
+                <option value="Star Marks (75%+)">Star Marks (75%+)</option>
+                <option value="1st Division (60%+)">1st Division (60%+)</option>
+                <option value="2nd Division (45%+)">2nd Division (45%+)</option>
+                <option value="3rd Division (34%+)">3rd Division (34%+)</option>
+            </select>
+        </div>
+        <div class="slicer-group">
+            <label><i class="fa-solid fa-magnifying-glass"></i> Search Student / Roll</label>
+            <input type="text" id="searchInput" placeholder="Search student name or roll..." oninput="applyFilters()">
+        </div>
+    </div>
+
+    <!-- KPI Cards Row -->
+    <div class="kpi-grid">
+        <div class="kpi-card">
+            <div class="kpi-info">
+                <h3>Total Candidates</h3>
+                <div class="kpi-value" id="kpiTotalStudents">0</div>
+            </div>
+            <div class="kpi-icon kpi-blue"><i class="fa-solid fa-users"></i></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-info">
+                <h3>Pass Percentage</h3>
+                <div class="kpi-value" id="kpiPassRate">0%</div>
+            </div>
+            <div class="kpi-icon kpi-green"><i class="fa-solid fa-chart-line"></i></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-info">
+                <h3>Class Average %</h3>
+                <div class="kpi-value" id="kpiClassAvg">0%</div>
+            </div>
+            <div class="kpi-icon kpi-purple"><i class="fa-solid fa-calculator"></i></div>
+        </div>
+        <div class="kpi-card">
+            <div class="kpi-info">
+                <h3>Highest Score</h3>
+                <div class="kpi-value" id="kpiTopScore">0 / 700</div>
+            </div>
+            <div class="kpi-icon kpi-amber"><i class="fa-solid fa-trophy"></i></div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-grid">
+        <!-- 1. Bar Chart: Subject Average vs Highest -->
+        <div class="chart-card">
+            <h2><i class="fa-solid fa-chart-bar"></i> Subject-Wise Average vs Top Score (Bar Chart)</h2>
+            <div class="chart-container">
+                <canvas id="barChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 2. Column Chart: Score Distribution -->
+        <div class="chart-card">
+            <h2><i class="fa-solid fa-chart-column"></i> Marks Range Distribution (Column Chart)</h2>
+            <div class="chart-container">
+                <canvas id="columnChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 3. Pie Chart: Division Breakdown -->
+        <div class="chart-card">
+            <h2><i class="fa-solid fa-chart-pie"></i> Division Breakdown (Pie Chart)</h2>
+            <div class="chart-container">
+                <canvas id="pieChart"></canvas>
+            </div>
+        </div>
+
+        <!-- 4. Line Chart: Student Performance Trend -->
+        <div class="chart-card">
+            <h2><i class="fa-solid fa-arrow-trend-up"></i> Top Student Percentile Distribution (Line Chart)</h2>
+            <div class="chart-container">
+                <canvas id="lineChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data Table Section -->
+    <div class="table-card">
+        <div class="table-header">
+            <h2><i class="fa-solid fa-table"></i> Student Marksheet Details Table</h2>
+            <button class="export-btn" onclick="exportTableToCSV()"><i class="fa-solid fa-download"></i> Export CSV</button>
+        </div>
+        <div class="table-wrapper">
+            <table id="marksheetTable">
+                <thead>
+                    <tr>
+                        <th>Roll No</th>
+                        <th>Student Name</th>
+                        <th>Bengali (1st)</th>
+                        <th>English (2nd)</th>
+                        <th>Maths</th>
+                        <th>Phy Sci</th>
+                        <th>Life Sci</th>
+                        <th>History</th>
+                        <th>Geography</th>
+                        <th>Total / 700</th>
+                        <th>Percentage</th>
+                        <th>Division</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Dynamic Rows -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Sample Madhyamik dataset used by default
+    let defaultData = [
+        { roll: "101", name: "Sneha Mukherjee", beng: 88, eng: 85, math: 95, psci: 92, lsci: 90, hist: 84, geo: 91, total: 625, pct: 89.2, div: "Star Marks (75%+)" },
+        { roll: "102", name: "Arpan Roy", beng: 76, eng: 80, math: 88, psci: 84, lsci: 82, hist: 75, geo: 80, total: 565, pct: 80.7, div: "Star Marks (75%+)" },
+        { roll: "103", name: "Riya Sen", beng: 65, eng: 70, math: 62, psci: 68, lsci: 72, hist: 60, geo: 66, total: 463, pct: 66.1, div: "1st Division (60%+)" },
+        { roll: "104", name: "Subham Das", beng: 58, eng: 62, math: 55, psci: 50, lsci: 61, hist: 54, geo: 58, total: 398, pct: 56.8, div: "2nd Division (45%+)" },
+        { roll: "105", name: "Ananya Ghosh", beng: 82, eng: 89, math: 91, psci: 88, lsci: 86, hist: 80, geo: 85, total: 601, pct: 85.8, div: "Star Marks (75%+)" },
+        { roll: "106", name: "Debjit Paul", beng: 45, eng: 48, math: 42, psci: 40, lsci: 50, hist: 46, geo: 49, total: 320, pct: 45.7, div: "2nd Division (45%+)" },
+        { roll: "107", name: "Pooja Mondal", beng: 38, eng: 40, math: 35, psci: 36, lsci: 42, hist: 39, geo: 41, total: 271, pct: 38.7, div: "3rd Division (34%+)" },
+        { roll: "108", name: "Rahul Bannerjee", beng: 72, eng: 75, math: 81, psci: 78, lsci: 80, hist: 70, geo: 74, total: 530, pct: 75.7, div: "Star Marks (75%+)" },
+        { roll: "109", name: "Sourav Ganguly", beng: 61, eng: 65, math: 70, psci: 64, lsci: 68, hist: 59, geo: 63, total: 450, pct: 64.2, div: "1st Division (60%+)" },
+        { roll: "110", name: "Sumi Chakraborty", beng: 90, eng: 92, math: 98, psci: 96, lsci: 95, hist: 89, geo: 94, total: 654, pct: 93.4, div: "Star Marks (75%+)" }
+    ];
+
+    let rawData = [...defaultData];
+    let filteredData = [...defaultData];
+
+    let chartInstances = {};
+
+    window.onload = function() {
+        initDashboard();
+    };
+
+    // Excel File Upload Listener
+    document.getElementById('excelFile').addEventListener('change', handleFileUpload);
+
+    function handleFileUpload(e) {
+        let file = e.target.files[0];
+        if (!file) return;
+
+        let reader = new FileReader();
+        reader.onload = function(evt) {
+            let data = new Uint8Array(evt.target.result);
+            let workbook = XLSX.read(data, { type: 'array' });
+            let firstSheetName = workbook.SheetNames[0];
+            let worksheet = workbook.Sheets[firstSheetName];
+            let json = XLSX.utils.sheet_to_json(worksheet);
+
+            if (json && json.length > 0) {
+                parseExcelData(json);
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    function parseExcelData(json) {
+        rawData = json.map((row, idx) => {
+            let name = row['Name'] || row['Student Name'] || row['STUDENT NAME'] || `Student ${idx+1}`;
+            let roll = row['Roll'] || row['Roll No'] || row['ROLL'] || (101 + idx).toString();
+            let beng = Number(row['Bengali'] || row['Beng'] || row['First Language'] || row['FL'] || 0);
+            let eng = Number(row['English'] || row['Eng'] || row['Second Language'] || row['SL'] || 0);
+            let math = Number(row['Math'] || row['Mathematics'] || row['MATH'] || 0);
+            let psci = Number(row['Physical Science'] || row['Phy Sci'] || row['PSC'] || 0);
+            let lsci = Number(row['Life Science'] || row['Life Sci'] || row['LSC'] || 0);
+            let hist = Number(row['History'] || row['HIST'] || 0);
+            let geo = Number(row['Geography'] || row['GEO'] || 0);
+
+            let total = row['Total'] ? Number(row['Total']) : (beng + eng + math + psci + lsci + hist + geo);
+            let pct = row['Percentage'] ? Number(row['Percentage']) : parseFloat((total / 7).toFixed(1));
+
+            let div = "3rd Division (34%+)";
+            if (pct >= 75) div = "Star Marks (75%+)";
+            else if (pct >= 60) div = "1st Division (60%+)";
+            else if (pct >= 45) div = "2nd Division (45%+)";
+
+            return { roll, name, beng, eng, math, psci, lsci, hist, geo, total, pct, div };
+        });
+
+        filteredData = [...rawData];
+        initDashboard();
+    }
+
+    function applyFilters() {
+        let divVal = document.getElementById('divisionFilter').value;
+        let searchVal = document.getElementById('searchInput').value.toLowerCase();
+
+        filteredData = rawData.filter(item => {
+            let matchDiv = (divVal === 'ALL') || (item.div === divVal);
+            let matchSearch = item.name.toLowerCase().includes(searchVal) || item.roll.toString().toLowerCase().includes(searchVal);
+            return matchDiv && matchSearch;
+        });
+
+        updateDashboard();
+    }
+
+    function initDashboard() {
+        updateKPIs();
+        renderTable();
+        renderCharts();
+    }
+
+    function updateDashboard() {
+        updateKPIs();
+        renderTable();
+        updateCharts();
+    }
+
+    function updateKPIs() {
+        let total = filteredData.length;
+        document.getElementById('kpiTotalStudents').innerText = total;
+
+        if (total === 0) {
+            document.getElementById('kpiPassRate').innerText = "0%";
+            document.getElementById('kpiClassAvg').innerText = "0%";
+            document.getElementById('kpiTopScore').innerText = "0 / 700";
+            return;
+        }
+
+        let passed = filteredData.filter(d => d.pct >= 34).length;
+        let passRate = ((passed / total) * 100).toFixed(1);
+        let avgPct = (filteredData.reduce((acc, d) => acc + d.pct, 0) / total).toFixed(1);
+        let topScore = Math.max(...filteredData.map(d => d.total));
+
+        document.getElementById('kpiPassRate').innerText = passRate + "%";
+        document.getElementById('kpiClassAvg').innerText = avgPct + "%";
+        document.getElementById('kpiTopScore').innerText = topScore + " / 700";
+    }
+
+    function renderTable() {
+        let tbody = document.getElementById('tableBody');
+        tbody.innerHTML = "";
+
+        filteredData.forEach(item => {
+            let tr = document.createElement('tr');
+
+            let badgeClass = "badge-3rd";
+            if (item.div.includes("Star")) badgeClass = "badge-star";
+            else if (item.div.includes("1st")) badgeClass = "badge-1st";
+            else if (item.div.includes("2nd")) badgeClass = "badge-2nd";
+
+            tr.innerHTML = `
+                <td><strong>${item.roll}</strong></td>
+                <td>${item.name}</td>
+                <td>${item.beng}</td>
+                <td>${item.eng}</td>
+                <td>${item.math}</td>
+                <td>${item.psci}</td>
+                <td>${item.lsci}</td>
+                <td>${item.hist}</td>
+                <td>${item.geo}</td>
+                <td><strong>${item.total}</strong></td>
+                <td><strong>${item.pct}%</strong></td>
+                <td><span class="badge ${badgeClass}">${item.div}</span></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function getSubjectAverages() {
+        let subs = ['beng', 'eng', 'math', 'psci', 'lsci', 'hist', 'geo'];
+        let len = filteredData.length || 1;
+        let avgs = subs.map(s => (filteredData.reduce((acc, d) => acc + d[s], 0) / len).toFixed(1));
+        let tops = subs.map(s => filteredData.length ? Math.max(...filteredData.map(d => d[s])) : 0);
+        return { avgs, tops };
+    }
+
+    function renderCharts() {
+        let subData = getSubjectAverages();
+        let subLabels = ['Bengali', 'English', 'Math', 'Phy Sci', 'Life Sci', 'History', 'Geography'];
+
+        // 1. Bar Chart
+        let ctxBar = document.getElementById('barChart').getContext('2d');
+        chartInstances.bar = new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: subLabels,
+                datasets: [
+                    { label: 'Class Avg', data: subData.avgs, backgroundColor: '#3b82f6' },
+                    { label: 'Subject Top Score', data: subData.tops, backgroundColor: '#10b981' }
+                ]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { max: 100 } } }
+        });
+
+        // 2. Column Chart (Buckets)
+        let ctxCol = document.getElementById('columnChart').getContext('2d');
+        chartInstances.col = new Chart(ctxCol, {
+            type: 'bar',
+            data: {
+                labels: ['75%+ (Star)', '60-74% (1st)', '45-59% (2nd)', '34-44% (3rd)', '<34%'],
+                datasets: [{
+                    label: 'Number of Students',
+                    data: getBucketCounts(),
+                    backgroundColor: ['#f59e0b', '#3b82f6', '#6366f1', '#8b5cf6', '#ef4444']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // 3. Pie Chart
+        let ctxPie = document.getElementById('pieChart').getContext('2d');
+        chartInstances.pie = new Chart(ctxPie, {
+            type: 'pie',
+            data: {
+                labels: ['Star Marks', '1st Division', '2nd Division', '3rd Division'],
+                datasets: [{
+                    data: getDivisionCounts(),
+                    backgroundColor: ['#f59e0b', '#2563eb', '#4f46e5', '#9333ea']
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false }
+        });
+
+        // 4. Line Chart
+        let ctxLine = document.getElementById('lineChart').getContext('2d');
+        let sorted = [...filteredData].sort((a,b) => b.pct - a.pct).slice(0, 10);
+        chartInstances.line = new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: sorted.map(s => s.name),
+                datasets: [{
+                    label: 'Overall Percentage (%)',
+                    data: sorted.map(s => s.pct),
+                    borderColor: '#0f766e',
+                    backgroundColor: 'rgba(15, 118, 110, 0.1)',
+                    fill: true,
+                    tension: 0.3,
+                    pointRadius: 5
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { max: 100 } } }
+        });
+    }
+
+    function getBucketCounts() {
+        let b1 = filteredData.filter(d => d.pct >= 75).length;
+        let b2 = filteredData.filter(d => d.pct >= 60 && d.pct < 75).length;
+        let b3 = filteredData.filter(d => d.pct >= 45 && d.pct < 60).length;
+        let b4 = filteredData.filter(d => d.pct >= 34 && d.pct < 45).length;
+        let b5 = filteredData.filter(d => d.pct < 34).length;
+        return [b1, b2, b3, b4, b5];
+    }
+
+    function getDivisionCounts() {
+        let star = filteredData.filter(d => d.div.includes("Star")).length;
+        let d1 = filteredData.filter(d => d.div.includes("1st")).length;
+        let d2 = filteredData.filter(d => d.div.includes("2nd")).length;
+        let d3 = filteredData.filter(d => d.div.includes("3rd")).length;
+        return [star, d1, d2, d3];
+    }
+
+    function updateCharts() {
+        let subData = getSubjectAverages();
+        
+        // Bar
+        chartInstances.bar.data.datasets[0].data = subData.avgs;
+        chartInstances.bar.data.datasets[1].data = subData.tops;
+        chartInstances.bar.update();
+
+        // Column
+        chartInstances.col.data.datasets[0].data = getBucketCounts();
+        chartInstances.col.update();
+
+        // Pie
+        chartInstances.pie.data.datasets[0].data = getDivisionCounts();
+        chartInstances.pie.update();
+
+        // Line
+        let sorted = [...filteredData].sort((a,b) => b.pct - a.pct).slice(0, 10);
+        chartInstances.line.data.labels = sorted.map(s => s.name);
+        chartInstances.line.data.datasets[0].data = sorted.map(s => s.pct);
+        chartInstances.line.update();
+    }
+
+    function exportTableToCSV() {
+        let csv = ["Roll No,Student Name,Bengali,English,Math,Phy Sci,Life Sci,History,Geography,Total,Percentage,Division"];
+        filteredData.forEach(d => {
+            csv.push(`${d.roll},"${d.name}",${d.beng},${d.eng},${d.math},${d.psci},${d.lsci},${d.hist},${d.geo},${d.total},${d.pct}%,"${d.div}"`);
+        });
+
+        let csvFile = new Blob([csv.join("\n")], { type: "text/csv" });
+        let downloadLink = document.createElement("a");
+        downloadLink.download = "Madhyamik_Marksheet_Report.csv";
+        downloadLink.href = window.URL.createObjectURL(csvFile);
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+    }
+</script>
+
+</body>
+</html>
